@@ -1,7 +1,23 @@
 {
   "version": "1.0.2",
   "description": "Une bibliothèque JavaScript pour créer des interfaces utilisateurs",
-  "main": "index.js",
+  "exports":{
+    "*":"./index.js",
+    "createDom":"./index.js",
+    "render":"./index.js",
+    "component":"./index.js",
+    "define":"./index.js",
+    "TemplateRef":"./index.js",
+    "FiberOfElement":"./index.js",
+    "FiberOfNode":"./index.js",
+    "FiberOfText":"./index.js",
+    "FiberOfFragment":"./index.js",
+    "template":"./index.js",
+    "Children":"./index.js",
+    "$":"./index.js",
+    "html":"./index.js",
+    "createFiber":"./index.js"
+  },
   "repository": "https://github.com/WAROL52/rimax.git",
   "author": "WAROL52 <rabetsyrolio@gmail.com>",
   "license": "MIT",
@@ -23,9 +39,10 @@
   },
   "scripts": {
     "compile": "rollup -c rollup.config.js",
-    "rimax":"./bin/rimax.cmd"
+    "dev": "rollup -c rollup.config.js -w",
+    "rimax": "./bin/rimax.cmd"
   },
   "dependencies": {
-    "rimax-state": "^1.0.0"
+    "rimax-state": "^1.0.4"
   }
 }

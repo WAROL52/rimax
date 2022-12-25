@@ -1,5 +1,5 @@
 import { useState, RXState, useLayoutEffect, useMemo, useRef } from "../../hooks/indexHooks.js"
-import { DomController } from "../domController.js"
+import { $ } from "../domController.js"
 import { TemplateRef } from "../templateRef.js"
 
 const customeElementRegistry = {}
@@ -25,7 +25,7 @@ export class FiberOfNode {
         $onInit({ attrValue, el} = directiveOption){
             attrValue=attrValue instanceof RXState?attrValue.value:attrValue
             if(attrValue instanceof Function){
-                DomController.$(el).onCleanup=attrValue(el)
+                $(el).onCleanup=attrValue(el)
                 return
             }
             console.warn("$onInit.attrValue doit être de type Function")
@@ -78,11 +78,11 @@ export class FiberOfNode {
             const getValue = (value) => value instanceof Function ? value(el) : !!value
             const hasValidNow=()=>Object.values(data.listCondition).every(isTrue => isTrue)
             // const makeVisible = (isVisible = hasValidNow()) => el.getTextRoot()
-            const makeVisible = (isVisible = hasValidNow()) =>DomController.$(el).getTextRoot()
+            const makeVisible = (isVisible = hasValidNow()) =>$(el).getTextRoot()
                 .then(textRef => {
                     if(!textRef.parentNode){
                         // return el.onConnected(()=>el.getTextRoot().then(()=>hasValidNow() ? textRef.after(el) : el.remove()))
-                        return DomController.$(el).onConnected(()=>DomController.$(el).getTextRoot().then(()=>hasValidNow() ? textRef.after(el) : el.remove()))
+                        return $(el).onConnected(()=>$(el).getTextRoot().then(()=>hasValidNow() ? textRef.after(el) : el.remove()))
                     }
                     return textRef.parentNode && isVisible ? textRef.after(el) : el.remove()
                 })

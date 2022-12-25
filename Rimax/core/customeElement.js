@@ -1,82 +1,114 @@
-import { useEvent, useProps, useState } from "../hooks/indexHooks.js"
-import { createDom } from "./core.js"
-import { DomController } from "./domController.js"
-
-
-export function define(tagName, renderCallback, option = { defaultProps: {}, shadowRoot: null }) {
-    const _defaultProps = { ...(option.defaultProps ?? {}) }
-    const EVENTS = {}
-    const CLASSElement = class extends HTMLElement { 
-        #id = Math.random()
-        static get observedAttributes() { return Object.keys(_defaultProps) }
-        attributeChangedCallback(name, oldV, newV) {
-            if (useState.isState(this.props[name]) && this.props[name].toString() != newV && typeof this.props[name].value != "object") {
-                this.props[name].set(newV)
-            }
-        }
-        constructor(props) {
-            props = typeof props == "object" ? props : { children: [] }
-            super()
-            // insertEventDom(this)
-            DomController.$(this)
-            // this.innerHTML='<slot/>'
-            props = useProps({ ..._defaultProps, ...props })
-            props.children.push(...[...this.childNodes].map(c => {
-                c.remove()
-                insertEventDom(c)
-                DomController.$(c)
-                return c
-            }))
-            this.props = props
-            Object.entries(props).map(([attrName, attrValue]) => {
-                if (attrName == "children" || attrName.startsWith('$')) return;
-                this.onCleanup = attrValue.onChange((val) => {
-                    if (typeof val != 'object') {
-                        Promise.resolve().then(() => this.setAttribute(attrName, attrValue.toString()))
-                        return () => this.removeAttribute(attrName)
-                    }
-                    this.removeAttribute(attrName)
-                }, true)
-            })
-            const root = option.shadowRoot && this.attachShadow({
-                mode: "closed" === option.shadowRoot?.mode ? "closed" : "open",
-                delegatesFocus: !!option.shadowRoot?.delegatesFocus,
-                slotAssignment: "manual"// === option.shadowRoot?.slotAssignment ? "manual" : "named"
-            })
-            EVENTS[this.#id] = {
-                connectedCallback: useEvent(),
-                disconnectedCallback: useEvent(),
-                adoptedCallback: useEvent(),
-                onCleanup: [this.onCleanup],
-                mounted: useEvent({
-                    onSubscribe: (fn) => {
-                        return (...arg) => {
-                            const rv = fn(arg)
-                            if (rv instanceof Function) {
-                                this.onCleanup(rv)
-                            }
-                        }
-                    }
-                }),
-            }
-            const $component = Object.freeze({
-                root, el: this,
-                ...Object.entries(EVENTS[this.#id]).reduce((ob, [k, v]) => {
-                    ob[k] = v[0]
-                    return ob
-                }, {})
-            })
-            const children = createDom(renderCallback(props, $component))
-            const container = root || this
-            container.append(children)
-            const re = this.dispatchReady(this, children)
-            EVENTS[this.#id].mounted[1](this, children)
-        }
-        connectedCallback(...arg) { EVENTS[this.#id].connectedCallback[1](...arg) }
-        disconnectedCallback(...arg) { EVENTS[this.#id].disconnectedCallback[1](...arg) }
-        adoptedCallback(...arg) { EVENTS[this.#id].adoptedCallback[1](...arg) }
+import { useEvent, useProps, useState } from "../hooks/indexHooks.js";
+import { createDom } from "./core.js";
+import { $ } from "./domController.js";
+const REGISTER = new WeakMap();
+const options = {
+  defaultProps: {},
+  shadowRoot: null,
+};
+export function define(tagName, renderCallback, option = options) {
+  const {
+    defaultProps = options.defaultProps,
+    shadowRoot = options.shadowRoot,
+  } = option;
+  const CLASSElement = class extends HTMLElement {
+    static get observedAttributes() {
+      return Object.keys(defaultProps);
     }
+    attributeChangedCallback(name, oldV, newV) {
+      const props = REGISTER.get(this).props;
+      if (
+        useState.isState(props[name]) &&
+        props[name].toString() != newV &&
+        typeof props[name].value != "object"
+      ) {
+        props[name].set(newV);
+        console.log(name, newV);
+      }
+    }
+    constructor(_props) {
+      super();
+      _props = typeof _props == "object" && _props ? _props : {};
+      const handler = {
+        connectedCallback: useEvent(),
+        disconnectedCallback: useEvent(),
+        adoptedCallback: useEvent(),
+        onCleanup: [() => {}],
+        mounted: useEvent({
+          onSubscribe: (fn) => {
+            return (...arg) => {
+              const rv = fn(arg);
+              if (rv instanceof Function) {
+                this.onCleanup(rv);
+              }
+            };
+          },
+        }),
+        props: _props,
+        children: [],
+      };
+      REGISTER.set(this, handler);
+      $(this);
+      if (Array.isArray(_props.children)) {
+        handler.children.push(..._props.children);
+      }
+      const root = option.shadowRoot
+        ? this.attachShadow({
+            mode: "closed" === option.shadowRoot?.mode ? "closed" : "open",
+            delegatesFocus: !!option.shadowRoot?.delegatesFocus,
+            slotAssignment:
+              "manual" === option.shadowRoot?.slotAssignment
+                ? "manual"
+                : "named",
+          })
+        : this;
+      $(root);
+      const $component = Object.freeze({
+        root,
+        el: this,
+        ...Object.entries(handler).reduce((ob, [k, v]) => {
+          if (Array.isArray(v)) {
+            ob[k] = v[0];
+          }
+          return ob;
+        }, {}),
+      });
+      setTimeout(() => {
+        Promise.resolve().then(() => {
+          for (let i of this.attributes) {
+            const name = i.name;
+            if (useState.isState(_props[name])) {
+              _props[name].set(i.value);
+            } else {
+              _props[name] = i.value;
+            }
+          }
+          handler.props = useProps({ ...defaultProps, ..._props });
+          handler.children.push(...this.childNodes);
+          const el = renderCallback(
+            { ...handler.props, children: [...handler.children] },
+            $component
+          );
+          //   this.innerHTML = "";
+          root.append(createDom(el));
+          handler.mounted[1](this);
+          if (this.isConnected) {
+            handler.connectedCallback[1]();
+          }
+        });
+      });
+    }
+    connectedCallback() {
+      REGISTER.get(this).connectedCallback[1]();
+    }
+    disconnectedCallback() {
+      REGISTER.get(this).disconnectedCallback[1]();
+    }
+    adoptedCallback() {
+      REGISTER.get(this).adoptedCallback[1]();
+    }
+  };
 
-    customElements.define(tagName, CLASSElement, { extends: option.extends })
-    return (props) => new CLASSElement({children:[],...props})
+  customElements.define(tagName, CLASSElement, {});
+  return (props) => new CLASSElement({ children: [], ...props });
 }

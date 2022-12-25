@@ -333,7 +333,7 @@ const refSymbol=Symbol("$$ref");
 function useRef(value) {
     const [ref, changeRef] = useState(value);
     const OBJECT=Object;
-    return OBJECT.freeze(new (class Object {
+    return OBJECT.freeze(new (class {
         constructor(){
             OBJECT.defineProperty(this,"current",{
                 get:(()=>ref.value).bind(),
@@ -353,6 +353,8 @@ function useRef(value) {
     }))
 }
 useRef.isRef=((ref)=>(typeof ref=="object")&&refSymbol===ref[".rxType"]).bind();
+
+// salu
 
 function useEffect(callback, states = []) {
     if (!Array.isArray(states)) throw new Error("states doit être une Array")
@@ -440,134 +442,126 @@ function useMemo(callback, states = []) {
     return state
 }
 
-const DATABASE = new Map();
-function createHandler(dom) {
-    if (!(dom instanceof Node)) throw new Error("dom doit etre un instance de Node")
-    if (DATABASE.get(dom)) return DATABASE.get(dom)
-    let isDestroyed = false;
-    let destroyList = [];
-    const [onReady, dispatchReady] = useEvent({ clearAfterEachDispatch: true });
-    const [onConnected, dispatchConnected] = useEvent({ clearAfterEachDispatch: true });
-    let isReady = false;
-    onReady(() => isReady = true);
-    const $children = [...dom.childNodes];
-    const textRef = new Text();
-    const root = new Text();
-    const fiber = null;
-    const getTextRoot = () => Promise.resolve().then(() => {
-        if (dom.parentNode) {
-            dom.after(textRef);
-            dom.after(root);
-        } else if (root.parentNode) {
-            root.after(textRef);
-        }
-        return textRef
+const DATABASE = new WeakMap();
+function $(dom) {
+  if (!(dom instanceof Node))
+    throw new Error("dom doit etre un instance de Node");
+  if (DATABASE.get(dom)) return DATABASE.get(dom);
+  let isDestroyed = false;
+  let destroyList = [];
+  const [onReady, dispatchReady] = useEvent({ clearAfterEachDispatch: true });
+  const [onConnected, dispatchConnected] = useEvent({clearAfterEachDispatch: true});
+  let isReady = false;
+  onReady(() => (isReady = true));
+  [...dom.childNodes];
+  const textRef = new Text();
+  const root = new Text();
+  const fiber = null;
+  const getTextRoot = () =>
+    Promise.resolve().then(() => {
+      if (dom.parentNode) {
+        dom.after(textRef);
+        dom.after(root);
+      } else if (root.parentNode) {
+        root.after(textRef);
+      }
+      return textRef;
     });
-    const isValid = () => { if (isDestroyed) throw new Error("cette dom est deja considerer comme detruit, donc vous ne peux plus faire cette action..."); return true };
-    function onCleanUp(callback) {
-        isValid();
-        if (callback instanceof RXState && callback.value instanceof Function) {
-            const state = callback;
-            callback = (...args) => {
-                if (!(state.value instanceof Function)) throw new Error("state.value doit etre une function")
-                state.value(...args);
-            };
-        } else if (Array.isArray(callback)) {
-            callback.map(fn => handler.onDestroy(fn));
-            return
-        }
-        if ((callback instanceof Function)) {
-            destroyList.push(callback);
-        }
+  const isValid = () => {
+    if (isDestroyed)
+      throw new Error(
+        "cette dom est deja considerer comme detruit, donc vous ne peux plus faire cette action..."
+      );
+    return true;
+  };
+  function onCleanup(callback) {
+    isValid();
+    if (callback instanceof RXState && callback.value instanceof Function) {
+      const state = callback;
+      callback = (...args) => {
+        if (!(state.value instanceof Function))
+          throw new Error("state.value doit etre une function");
+        state.value(...args);
+      };
+    } else if (Array.isArray(callback)) {
+      callback.map((fn) => handler.onDestroy(fn));
+      return;
     }
-    const handler = Object.defineProperties({}, {
-        getFiber: () => fiber,
-        "onConnected": {
-            get: () => isValid() && onConnected,
-            set: val => isValid() && onConnected(val)
-        },
-        "onReady": {
-            get: () => isValid() && onReady,
-            set: val => isValid() && onReady(val)
-        },
-        "isReady": {
-            get: () => isReady,
-        },
-        "dispatchReady": {
-            get: () => isValid() && dispatchReady,
-        },
-        "dispatchConnected": {
-            get: () => isValid() && dispatchConnected
-        },
-        "model": {},
-        isDestroyed: {
-            get() { return isDestroyed }
-        },
-        isClean: {
-            get() { return isDestroyed }
-        },
-        "destroyList": { get() { return isValid() && [...destroyList] } },
-        "destroy": {
-            value: (withDom = false) => {
-                if (dom instanceof Node && !(dom instanceof DocumentFragment)) {
-                    dom.remove();
-                }
-                if (isDestroyed) return
-                handler.destroyList.map(fn => fn instanceof Function && fn(withDom));
-                isDestroyed = true;
-                destroyList = [];
-                if (dom instanceof Text && withDom) {
-                    dom.data = "";
-                }
-                handler.$children.map(el => el instanceof Node && DomController.$(el).destroy());
-            },
-            writable: false
-        },
-        "onCleanup": {
-            get() { return isValid() && onCleanUp },
-            set(value) { isValid() && onCleanUp(value); }
-        },
-        "$children": {
-            get() { return [...$children] },
-            set(value) {
-                value = Array.isArray(value) ? value : [value];
-                $children.push(...value);
-            }
-        },
-        getTextRoot: {
-            value: getTextRoot,
-            writable: false
-        },
-        textRef: {
-            get() { return textRef }
-        }
+    if (callback instanceof Function) {
+      destroyList.push(callback);
+    }
+  }
+  const attr = (attrName, value) => {
+    if (!(dom instanceof Element)) return null;
+    if (attrName && value !== undefined) {
+      dom.setAttribute(attrName, value || "");
+      return dom.getAttribute(attrName);
+    } else if (attrName) {
+      return dom.getAttribute(attrName);
+    }
+    return dom.attributes;
+  };
+  const style = (propertyName, value) => {
+    if(dom instanceof Element){
+      if(value===undefined){
+        return dom.style[propertyName]
+      }
+      dom.style[propertyName]=value;
+    }
+    return dom.style[propertyName]
+  };
+  const addClass = (className) => dom instanceof Element&&dom.classList.add(className);
+  const hasClass = (className) => dom instanceof Element&&dom.classList.contains(className);
+  const removeClass = (className) => dom instanceof Element&&dom.classList.remove(className);
+  const toggleClass = (className) => dom instanceof Element&&dom.classList.toggle(className);
+  const on = (type, value) => {
+    const handler=e=>value instanceof Function&&value(e);
+    dom.addEventListener(type,handler);
+    return ()=>dom.removeEventListener(type,handler)
+  };
+  const getFiber = () => fiber;
 
-    });
-    handler.onConnected(() => {
-        if (dom.parentNode) {
-            dom.after(root);
-        }
-    });
-    if (dom.isConnected) {
-        Promise.resolve().then(() => dispatchConnected(dom.parentElement));
-    } else {
-        dom.onconnected = () => {
-            console.log("wala");
-            dispatchConnected(dom.parentElement);
-        };
+  const destroy = (withDom = false) => { 
+    if (dom instanceof Node && !(dom instanceof DocumentFragment)) {
+      dom.remove();
     }
-    DATABASE.set(dom, handler);
-    return handler
-}
-class DomController {
-    static $(dom) {
-        return createHandler(dom)
+    if (isDestroyed) return;
+    destroyList.map((fn) => fn instanceof Function && fn(withDom));
+    isDestroyed = true;
+    destroyList = [];
+    if (dom instanceof Text && withDom) {
+      dom.data = "";
     }
-    static children(...children) {
-        children = children.flat(Infinity);
-        return children
+    // handler.$children.map((el) => el instanceof Node && $(el).destroy());
+  };
+  const HANDLER = {
+    getFiber: () => fiber,
+    attr,style,addClass,hasClass,removeClass,toggleClass,on,getFiber,
+    onConnected,dispatchConnected,onReady,dispatchReady,getTextRoot,
+    destroy,onCleanup,
+    isReady: () => isReady,
+    isDestroyed: () => isDestroyed,
+    isConnected: () => isConnected,
+    isCleaned: () => isClean,
+    get textRef() {
+      return textRef;
+    },
+    id: 123,
+  };
+  Object.freeze(HANDLER);
+  HANDLER.onConnected(() => {
+    if (dom.parentNode) {
+      dom.after(root);
     }
-    static getFiberOf(dom) { this.$(dom).getFiber(); }
+  });
+  const id=setInterval(()=>{
+    if(dom.parentElement){
+      clearInterval(id);
+      dispatchConnected(dom.parentElement);
+    }
+  },10);
+  DATABASE.set(dom, HANDLER);
+  return HANDLER;
 }
 
 const codeLogError= {
@@ -684,7 +678,7 @@ class FiberOfNode {
         $onInit({ attrValue, el} = directiveOption){
             attrValue=attrValue instanceof RXState?attrValue.value:attrValue;
             if(attrValue instanceof Function){
-                DomController.$(el).onCleanup=attrValue(el);
+                $(el).onCleanup=attrValue(el);
                 return
             }
             console.warn("$onInit.attrValue doit être de type Function");
@@ -737,11 +731,11 @@ class FiberOfNode {
             const getValue = (value) => value instanceof Function ? value(el) : !!value;
             const hasValidNow=()=>Object.values(data.listCondition).every(isTrue => isTrue);
             // const makeVisible = (isVisible = hasValidNow()) => el.getTextRoot()
-            const makeVisible = (isVisible = hasValidNow()) =>DomController.$(el).getTextRoot()
+            const makeVisible = (isVisible = hasValidNow()) =>$(el).getTextRoot()
                 .then(textRef => {
                     if(!textRef.parentNode){
                         // return el.onConnected(()=>el.getTextRoot().then(()=>hasValidNow() ? textRef.after(el) : el.remove()))
-                        return DomController.$(el).onConnected(()=>DomController.$(el).getTextRoot().then(()=>hasValidNow() ? textRef.after(el) : el.remove()))
+                        return $(el).onConnected(()=>$(el).getTextRoot().then(()=>hasValidNow() ? textRef.after(el) : el.remove()))
                     }
                     return textRef.parentNode && isVisible ? textRef.after(el) : el.remove()
                 });
@@ -1013,7 +1007,6 @@ const needCallback$1 = (callback, args, $this) => callback.apply($this, args);
 needCallback$1.after = (callback, args, $this) => Promise.resolve().then(() => callback.apply($this, args));
 needCallback$1.idle = (callback, args, $this) => requestIdleCallback(() => callback.apply($this, args));
 
-
 function createElement(fiber) {
     const sendListOfDom = (list) => list.flat(Infinity).map(child => createDom(child));
     if (fiber instanceof Node) return fiber
@@ -1090,10 +1083,10 @@ function initProps(dom, fiber) {
             const redOneStyle = (value) => {
                 if (value instanceof RXState) {
                     // dom.onCleanup = value.onChange((val, oldVal) => {
-                    DomController.$(dom).onCleanup = value.onChange((val, oldVal) => {
+                    $(dom).onCleanup(value.onChange((val, oldVal) => {
                         update(val, oldVal);
                         return () => value.destroy()
-                    }, true);
+                    }, true));
                 } else {
                     update(value);
                 }
@@ -1103,7 +1096,7 @@ function initProps(dom, fiber) {
             } else {
                 redOneStyle(attrValue);
             }
-            DomController.$(dom).onCleanup = () => onRemove instanceof Function && onRemove();
+            $(dom).onCleanup(() => onRemove instanceof Function && onRemove());
         };
         const toClean = () => null;
         let cleanup = toClean;
@@ -1133,7 +1126,7 @@ function initProps(dom, fiber) {
                 applyCallback(attrValue, args);
             };
             let removeEv = () => dom.removeEventListener(type, callback);
-            DomController.$(dom).onCleanup(removeEv);
+            $(dom).onCleanup(removeEv);
             // dom.onDestroy(removeEv)
             dom.addEventListener(type, callback);
             cleanup = () => removeEv;
@@ -1163,7 +1156,7 @@ function initProps(dom, fiber) {
                     });
                     if (rmv instanceof Function) {
                         // dom.onDestroy(rmv)
-                        DomController.$(dom).onCleanup(rmv);
+                        $(dom).onCleanup(rmv);
                         cleanup = rmv;
                         listOnCleanup.push(cleanup);
                     }
@@ -1174,7 +1167,7 @@ function initProps(dom, fiber) {
             if (["select"].includes(dom.localName) && dom instanceof HTMLSelectElement) {
                 dom.value = rcState.value;
                 // dom.onReady(()=>{
-                DomController.$(dom).onReady(() => {
+                $(dom).onReady(() => {
                     dom.selectedIndex = -1;
                     let i = -1;
                     for (let opt of dom) {
@@ -1199,7 +1192,7 @@ function initProps(dom, fiber) {
                 dom.value = "";
             };
             // dom.onDestroy(cleanup)
-            DomController.$(dom).onCleanup(cleanup);
+            $(dom).onCleanup(cleanup);
         } else if (attrName == "style" || /^style<\d+>/.test(attrName)) {
             const styleDefault = dom.style.cssText;
             const rendStyle = (value) => needCallback$1.after(() => {
@@ -1271,7 +1264,7 @@ function initProps(dom, fiber) {
                 }
             });
             // dom.onDestroy(clean)
-            DomController.$(dom).onCleanup(clean);
+            $(dom).onCleanup(clean);
             attrValue = attrValue.value;
             listOnCleanup.push(clean);
         }
@@ -1306,13 +1299,13 @@ const updateArray = {
                 } else ;
                 listDom.push(dom);
                 return dom
-            })).map(e => !listElement.find(_e => _e === e) && DomController.$(e).destroy(true));
+            })).map(e => !listElement.find(_e => _e === e) && $(e).destroy(true));
         } else {
             listElement.splice(0, listElement.length, ...valueOfState.map(v => {
                 const dom = createDom(v);
                 textRef.before(dom);
                 return dom
-            })).map(e => DomController.$(e).destroy());
+            })).map(e => $(e).destroy());
         }
     }
 };
@@ -1386,7 +1379,7 @@ function updateDataBinding(state, textDom, dom, listElement) {
         }
     }, true);
     // dom.onDestroy(remove)
-    DomController.$(dom).onCleanup(remove);
+    $(dom).onCleanup(remove);
 }
 function bindData(textDom, textFiber) {
     if (!(textFiber.props.nodeValue instanceof RXState)) return textDom
@@ -1433,13 +1426,13 @@ function render(element, container = document.body) {
         }
         // insertEventDom(dom)
         // insertEventDom(container)
-        DomController.$(container).onCleanup(DomController.$(dom).onCleanup);
+        $(container).onCleanup($(dom).onCleanup);
         // container.onDestroy(dom.destroy)
         const append = () => {
             txtRef.after(dom);
             // if (container instanceof DocumentFragment) container.$children = dom;
-            DomController.$(container).$children = dom;
-            DomController.$(dom).dispatchConnected(container);
+            // $(container).$children = dom
+            $(dom).dispatchConnected(container);
             // dom.dispatchConnected(container)
         };
         append();
@@ -1481,7 +1474,7 @@ function createDom(fiber) {
 
     const createChild = (childDom) => {
         // insertEventDom(childDom)
-        // const handlerDom=DomController.$(childDom)
+        // const handlerDom=$(childDom)
         if (fiber instanceof Node) return childDom
         if (fiber instanceof FiberOfText && RXState.isState(fiber.props.nodeValue)) return bindData(childDom, fiber)
         if (fiber && fiber.type instanceof Function) return childDom
@@ -1505,7 +1498,7 @@ function createDom(fiber) {
         Promise.all(rending)
             .then((children) => {
                 initProps(childDom, fiber);
-                needCallback$1.after(() => DomController.$(childDom).dispatchReady(childDom, children));
+                needCallback$1.after(() => $(childDom).dispatchReady(childDom, children));
             });
         return childDom
     };
@@ -1515,7 +1508,7 @@ function createDom(fiber) {
         }
         const doc = new DocumentFragment;
         // insertEventDom(doc)
-        DomController.$(doc).$children = dom;
+        // $(doc).$children = dom
         // doc.$children = dom
         doc.append(...dom);
         return doc
@@ -1532,83 +1525,115 @@ function component(callback, option = { defaultProps: {}}) {
     return fn
 }
 
-function define(tagName, renderCallback, option = { defaultProps: {}, shadowRoot: null }) {
-    const _defaultProps = { ...(option.defaultProps ?? {}) };
-    const EVENTS = {};
-    const CLASSElement = class extends HTMLElement { 
-        #id = Math.random()
-        static get observedAttributes() { return Object.keys(_defaultProps) }
-        attributeChangedCallback(name, oldV, newV) {
-            if (useState.isState(this.props[name]) && this.props[name].toString() != newV && typeof this.props[name].value != "object") {
-                this.props[name].set(newV);
+const REGISTER = new WeakMap();
+const options={
+  defaultProps:{},
+  shadowRoot:null
+};
+function define(tagName, renderCallback, option = options) {
+    const { defaultProps = options.defaultProps, shadowRoot = options.shadowRoot } =
+      option;
+    const CLASSElement = class extends HTMLElement {
+      static get observedAttributes() {
+        return Object.keys(defaultProps);
+      }
+      attributeChangedCallback(name, oldV, newV) {
+        const props = REGISTER.get(this).props;
+        if (
+          useState.isState(props[name]) &&
+          props[name].toString() != newV &&
+          typeof props[name].value != "object"
+        ) {
+          props[name].set(newV);
+          console.log(name, newV);
+        }
+      }
+      constructor(_props) {
+        super();
+        _props = typeof _props == "object" && _props ? _props : {};
+        const handler={
+          connectedCallback: useEvent(),
+          disconnectedCallback: useEvent(),
+          adoptedCallback: useEvent(),
+          onCleanup: [() => {}],
+          mounted: useEvent({
+            onSubscribe: (fn) => {
+              return (...arg) => {
+                const rv = fn(arg);
+                if (rv instanceof Function) {
+                  this.onCleanup(rv);
+                }
+              };
+            },
+          }),
+          props: _props,
+          children: []
+        };
+        REGISTER.set(this, handler);
+        $(this);
+        if(Array.isArray(_props.children)){
+          handler.children.push(..._props.children);
+        }
+        const root = option.shadowRoot
+          ? this.attachShadow({
+              mode: "closed" === option.shadowRoot?.mode ? "closed" : "open",
+              delegatesFocus: !!option.shadowRoot?.delegatesFocus,
+              slotAssignment:
+                "manual" === option.shadowRoot?.slotAssignment
+                  ? "manual"
+                  : "named",
+            })
+          : this;
+          $(root);
+        const $component = Object.freeze({
+          root,
+          el: this,
+          ...Object.entries(handler).reduce((ob, [k, v]) => {
+            if (Array.isArray(v)) {
+              ob[k] = v[0];
             }
-        }
-        constructor(props) {
-            props = typeof props == "object" ? props : { children: [] };
-            super();
-            // insertEventDom(this)
-            DomController.$(this);
-            // this.innerHTML='<slot/>'
-            props = useProps({ ..._defaultProps, ...props });
-            props.children.push(...[...this.childNodes].map(c => {
-                c.remove();
-                insertEventDom(c);
-                DomController.$(c);
-                return c
-            }));
-            this.props = props;
-            Object.entries(props).map(([attrName, attrValue]) => {
-                if (attrName == "children" || attrName.startsWith('$')) return;
-                this.onCleanup = attrValue.onChange((val) => {
-                    if (typeof val != 'object') {
-                        Promise.resolve().then(() => this.setAttribute(attrName, attrValue.toString()));
-                        return () => this.removeAttribute(attrName)
-                    }
-                    this.removeAttribute(attrName);
-                }, true);
-            });
-            const root = option.shadowRoot && this.attachShadow({
-                mode: "closed" === option.shadowRoot?.mode ? "closed" : "open",
-                delegatesFocus: !!option.shadowRoot?.delegatesFocus,
-                slotAssignment: "manual"// === option.shadowRoot?.slotAssignment ? "manual" : "named"
-            });
-            EVENTS[this.#id] = {
-                connectedCallback: useEvent(),
-                disconnectedCallback: useEvent(),
-                adoptedCallback: useEvent(),
-                onCleanup: [this.onCleanup],
-                mounted: useEvent({
-                    onSubscribe: (fn) => {
-                        return (...arg) => {
-                            const rv = fn(arg);
-                            if (rv instanceof Function) {
-                                this.onCleanup(rv);
-                            }
-                        }
-                    }
-                }),
-            };
-            const $component = Object.freeze({
-                root, el: this,
-                ...Object.entries(EVENTS[this.#id]).reduce((ob, [k, v]) => {
-                    ob[k] = v[0];
-                    return ob
-                }, {})
-            });
-            const children = createDom(renderCallback(props, $component));
-            const container = root || this;
-            container.append(children);
-            this.dispatchReady(this, children);
-            EVENTS[this.#id].mounted[1](this, children);
-        }
-        connectedCallback(...arg) { EVENTS[this.#id].connectedCallback[1](...arg); }
-        disconnectedCallback(...arg) { EVENTS[this.#id].disconnectedCallback[1](...arg); }
-        adoptedCallback(...arg) { EVENTS[this.#id].adoptedCallback[1](...arg); }
+            return ob;
+          }, {}),
+        });
+        setTimeout(() => {
+          Promise.resolve().then(() => {
+            for (let i of this.attributes) {
+                const name=i.name;
+              if(useState.isState(_props[name])){
+                  _props[name].set(i.value);
+              }else {
+                  _props[name]=i.value;
+              }
+            }
+            handler.props = useProps({ ...defaultProps, ..._props });
+            handler.children.push(...this.childNodes);
+            const el = renderCallback(
+              { ...handler.props, children:[...handler.children] },
+              $component
+            );
+            //   this.innerHTML = "";
+            root.append(createDom(el));
+            handler.mounted[1](this);
+            if (this.isConnected) {
+              handler.connectedCallback[1]();
+            }
+          });
+        });
+      }
+      connectedCallback() {
+        REGISTER.get(this).connectedCallback[1]();
+      }
+      disconnectedCallback() {
+        REGISTER.get(this).disconnectedCallback[1]();
+      }
+      adoptedCallback() {
+        REGISTER.get(this).adoptedCallback[1]();
+      }
     };
-
-    customElements.define(tagName, CLASSElement, { extends: option.extends });
-    return (props) => new CLASSElement({children:[],...props})
-}
+  
+    customElements.define(tagName, CLASSElement, {});
+    return (props) => new CLASSElement({ children: [], ...props });
+  }
 
 const listTagEmpty = ["area", "base", "br", "col", "embed", "hr", "img", "input", "keygen", "link", "meta", "param", "source", "track", "wbr"];
 const listTagKnown = ["a", "abbr", "address", "area", "article", "aside", "audio", "b", "base", "bdi", "bdo", "blockquote", "body", "br", "button", "canvas", "caption", "cite", "code", "col", "colgroup", "data", "datalist", "dd", "del", "details", "dfn", "dialog", "dir", "div", "dl", "dt", "em", "embed", "fieldset", "figcaption", "figure", "font", "footer", "form", "frame", "frameset", "h1", "h2", "h3", "h4", "h5", "h6", "head", "header", "hgroup", "hr", "html", "i", "iframe", "img", "input", "ins", "kbd", "label", "legend", "li", "link", "main", "map", "mark", "marquee", "menu", "meta", "meter", "nav", "noscript", "object", "ol", "optgroup", "option", "output", "p", "param", "picture", "pre", "progress", "q", "rp", "rt", "ruby", "s", "samp", "script", "section", "select", "slot", "small", "source", "span", "strong", "style", "sub", "summary", "sup", "table", "tbody", "td", "template", "textarea", "tfoot", "th", "thead", "time", "title", "tr", "track", "u", "ul", "var", "video", "wbr"];

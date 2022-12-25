@@ -21,7 +21,7 @@ export declare let html: {
 }
 export declare function render(element: any, container?:Element| HTMLElement|Text | DocumentFragment):Promise<Element| HTMLElement|Text | DocumentFragment>
 export declare function template(...args: any[]): FiberOfNode
-
+export {$,Children} from "./core/domController"
 
 type TagElement = HTMLElementTagNameMap & HTMLElementDeprecatedTagNameMap
 type FiberOf = {

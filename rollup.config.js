@@ -70,19 +70,20 @@ export default [
             // }),
             // dts(),
         ]
-    }, {
-        input: "./index.d.ts",
-        output: [{
-            file: "./bin/dist/rimax.es.d.ts", format: "es", name: "Rimax"
-        }, {
-            file: "./dist/rimax.es.d.ts", format: "es", name: "Rimax"
-        }, {
-            file: "dist/rimax.global.d.ts", format: "iife", name: "Rimax"
-        }, {
-            file: "./bin/dist/rimax.global.d.ts", format: "iife", name: "Rimax"
-        }],
-        plugins: [dts()],
-    },
+    }, 
+    // {
+    //     input: "./index.d.ts",
+    //     output: [{
+    //         file: "./bin/dist/rimax.es.d.ts", format: "es", name: "Rimax"
+    //     }, {
+    //         file: "./dist/rimax.es.d.ts", format: "es", name: "Rimax"
+    //     }, {
+    //         file: "dist/rimax.global.d.ts", format: "iife", name: "Rimax"
+    //     }, {
+    //         file: "./bin/dist/rimax.global.d.ts", format: "iife", name: "Rimax"
+    //     }],
+    //     plugins: [dts()],
+    // },
     // {
     //     input: './Rimax/index.js',
     //     plugins: [sourcemaps()],

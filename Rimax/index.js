@@ -5,6 +5,7 @@ export {define} from "./core/customeElement.js";
 export { TemplateRef as LinksOfDataInTemplateString } from "./core/templateRef.js";
 export {FiberOfElement,FiberOfFragment,FiberOfNode,FiberOfText} from "./core/RxFiber/indexOfFiber.js";
 export { template } from "./core/RcHtmlString/RcHtmlString.js";
+export {$,Children} from "./core/domController.js"
 
 import { createDom, } from "./core/core.js";
 import { useState,RXState} from "./hooks/indexHooks.js";
